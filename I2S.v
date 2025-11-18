@@ -9,7 +9,7 @@ module I2S #(
     output reg      o_MCLK = 0,
     output reg      o_LRCLK = 0 , // 
     output reg      o_SCLK = 0 , // Serial Clock
-    output reg      o_SDIN, // Output bit
+    output reg      o_SDIN // Output bit
 );  
 
     // Counters for generating 3 different clock signals
@@ -29,11 +29,6 @@ module I2S #(
     localparam WS_LEFT      = 0;
     localparam WS_RIGHT     = 1;
     reg        r_SM_Main = 0; 
-
-
-
-
-
 
     // Generate Serial Clock --> 25 Mhhz/16
     always @(posedge i_Clk)
@@ -69,16 +64,17 @@ module I2S #(
           begin 
             shift_register <= i_RX_Serial_Left;
             bit_counter<= bit_counter +1;
-            o_SDIN <= shift_register[15]; // Assigning MSB to the data out
+            o_SDIN <= i_RX_Serial_Left[15]; // Assigning MSB to the data out
           end
           else if (bit_counter < NUM_OF_AMPLITUDE_BITS-1)
           begin
+            o_SDIN <= shift_register[14]; // Output MSB BEFORE shifting (bit that will be lost)
             shift_register <= {shift_register[14:0], 1'b0};
             bit_counter <= bit_counter+1; 
-            o_SDIN <= shift_register[15]; // Assigning MSB to the data out
           end
           else if  (bit_counter== NUM_OF_AMPLITUDE_BITS-1)
           begin
+              o_SDIN <= shift_register[14]; // Output LSB (bit[0] after 15 shifts)
               bit_counter <= 0;
               r_SM_Main <= WS_RIGHT;
           end 
@@ -93,18 +89,19 @@ module I2S #(
           begin 
             shift_register <= i_RX_serial_Right;
             bit_counter <= bit_counter +1;
-            o_SDIN <= shift_register[15]; // Assigning MSB to the data out
+            o_SDIN <= i_RX_serial_Right[15]; // Assigning MSB to the data out
           end
           else if (bit_counter < NUM_OF_AMPLITUDE_BITS-1)
           begin
+            o_SDIN <= shift_register[14]; // Output MSB BEFORE shifting (bit that will be lost)
             shift_register <= {shift_register[14:0], 1'b0};
             bit_counter <= bit_counter+1; 
-            o_SDIN <= shift_register[15]; // Assigning MSB to the data out
           end
           else if  (bit_counter== NUM_OF_AMPLITUDE_BITS-1)
           begin
+              o_SDIN <= shift_register[14]; // Output LSB (bit[0] after 15 shifts)
               bit_counter <= 0;
-              r_SM_Main <= WS_RIGHT;
+              r_SM_Main <= WS_LEFT;
           end 
           else begin
               bit_counter <= bit_counter + 1;
