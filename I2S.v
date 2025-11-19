@@ -20,7 +20,8 @@ module I2S #(
     reg [15:0] shift_register;
     /*
     reg sampling_rate = i_CLK / DIVISOR;
-    assign o_SCLK = samplingrate * 16 ; //2 channels * Sampling Rate * 8 for the bit resolution
+    where sampling rate is equal to 48Khz
+    assign o_SCLK = samplingrate * 16 ; //2 channels * Sampling Rate * 16 for the bit resolution
     assign o_MCLK = sampling_rate* N ;
     assign o_LRCLK = sampling_rate; // For every 1 tick of the LRCLK 2^16(bit depth in our case) values get transmitted
     */
