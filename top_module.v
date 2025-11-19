@@ -2,6 +2,7 @@ module synth_top #(
     parameter integer ACC_WIDTH = 16,
     parameter integer DAC_WIDTH = 12,
     parameter integer CLK_FREQ  = 50_000_000
+    parameter integer SIN_ADDR_BITS = 8
 )(
     input  wire i_Clk,
     input  wire reset,
@@ -82,17 +83,16 @@ module synth_top #(
                                      ~phase_tri[ACC_WIDTH-2 -: DAC_WIDTH] :
                                       phase_tri[ACC_WIDTH-2 -: DAC_WIDTH];
 
+    // Sine wave lookup ROM
     wire [DAC_WIDTH-1:0] sine_out;
-
-    // // Sine wave lookup ROM
-    // sine_rom #(
-    //     .ADDR_BITS(8),
-    //     .DATA_BITS(DAC_WIDTH)
-    // ) sine_table (
-    //     .clk(i_Clk),
-    //     .addr(phase_sin[ACC_WIDTH-1 -: 8]), //top 8 bits = address
-    //     .data(sine_out)
-    // );
+    sine_rom #(
+        .ADDR_BITS(SIN_ADDR_BITS),
+        .DATA_BITS(DAC_WIDTH)
+    ) sine_table (
+        .clk(i_Clk),
+        .addr(phase_sin[ACC_WIDTH-1 -: SIN_ADDR_BITS]), //top SIN_ADDR_BITS bits = address to read from
+        .data(sine_out)
+    );
 
     // waveform selector
     reg [DAC_WIDTH-1:0] wave_mux;
