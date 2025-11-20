@@ -43,13 +43,3 @@
 - [ ] Add button functionality to select between waveforms
 
 
-## TODO
-
-- [ ] Sine Wave Form
-- [ ] Square Wave
-- [ ] Triangular Wave
-- [ ] Waveform selector
-- [ ] FIX: make note actually turn off after being released
-- [ ] Add multi note functionality/Chord Generator
-- [ ] Add button functionality to select between waveforms
-
