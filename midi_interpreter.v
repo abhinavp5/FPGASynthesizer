@@ -1,4 +1,4 @@
-//MIDI Parser + Note On/Off Detector + Frequency Lookup
+//MIDI Parser + Note On/Off Detector + Phase Increment Lookup
 
 module midi_interpreter (
     input wire clk,
@@ -9,7 +9,7 @@ module midi_interpreter (
     output reg note_on, //Pulses for Note On
     output reg note_off, //Pulses for Note Off
     output reg  [6:0]  current_note, //The active MIDI note number
-    output wire [31:0] freq_out, //Output frequency (Hz)
+    output wire [23:0] phase_inc_out, //Output phase increment (24-bit)
     output reg note_valid //Pulses when new note frequency is ready
 );
 
@@ -92,10 +92,11 @@ module midi_interpreter (
             end
         end
     end
-    //Frequency ROM lookup
+    //Phase increment ROM lookup
     midi_freq_rom freq_rom_inst (
+        .i_Clk(clk),
         .note(current_note),
-        .freq(freq_out)
+        .phase_inc(phase_inc_out)
     );
 
 endmodule
