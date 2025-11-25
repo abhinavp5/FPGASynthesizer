@@ -5,6 +5,7 @@ module uut#(
     input wire i_Clk,           
     input wire i_Reset,         
     input wire i_RX_Serial,
+    input wire i_Switch_1,
     output wire o_MCLK,         
     output wire o_SCLK,         
     output wire o_LRCLK,        
@@ -16,6 +17,9 @@ module uut#(
     wire [ACC_WIDTH-1:0] phase_inc_rom;
     wire note_on, note_off, note_valid;
     wire [6:0] current_note;
+    //waveform selection signals
+    wire i_Toggle_Switch; //debounced signal from the pushbutton
+    reg [1:0] r_Waveform_Select = 2'b00; //00 - Sawtooth, 01 - Square, 10 - Triangle
     
     // UART Receiver for MIDI
     UART_RX uart_reader (
@@ -37,9 +41,39 @@ module uut#(
         .phase_inc_out(phase_inc_rom),
         .note_valid(note_valid)
     );
+
+    //debounce filter for waveform select button
+    Debounce_Filter #(
+        .DEBOUNCE_LIMIT(20) 
+    ) debounce_inst (
+        .i_Clk(i_Clk),
+        .reset(i_Reset),
+        .i_Bouncy(i_Switch_1),
+        .o_Debounced(i_Toggle_Switch)
+    );
+
+    //waveform selection logic
+    reg [ACC_WIDTH-1:0] phase_acc; //needs to be declared here for the always block
+    reg [15:0] audio_data; //needs to be declared here for the always block
+
+    always @(posedge i_Clk) begin
+        if (i_Reset) begin
+            r_Waveform_Select <= 2'b00; //reset to sawtooth
+        end else begin
+            //cycle the waveform on a debounced rising edge
+            if (i_Toggle_Switch) begin
+                case (r_Waveform_Select)
+                    2'b00: r_Waveform_Select <= 2'b01; //sawtooth -> square
+                    2'b01: r_Waveform_Select <= 2'b10; //square -> triangle
+                    2'b10: r_Waveform_Select <= 2'b00; //triangle -> sawtooth
+                    default: r_Waveform_Select <= 2'b00;
+                endcase
+            end
+        end
+    end
     
-    // Phase accumulator
-    wire [ACC_WIDTH-1:0] phase_acc;
+    //phase accumulator
+    //wire [ACC_WIDTH-1:0] phase_acc;
     phase_accumulator #(
         .ACC_WIDTH(ACC_WIDTH)
     ) phase_acc_inst (
@@ -49,11 +83,33 @@ module uut#(
         .phase(phase_acc)
     );
     
-    // Sawtooth Generator 
-    // We take the top 16 bits of the counter. 
-    // This creates a ramp wave (Sawtooth).
-    wire [15:0] audio_data;
-    assign audio_data = {~phase_acc[ACC_WIDTH-1], phase_acc[ACC_WIDTH-2 : ACC_WIDTH-16]};
+    //waveform generator (24-bit phase to 16-bit audio_data)
+    wire [15:0] sawtooth_wave;
+    wire [15:0] square_wave;
+    wire [15:0] triangle_wave;
+
+    //sawtooth wave
+    //inverts MSB for two's complement-like output, then truncates to the top 16 bits
+    assign sawtooth_wave = {~phase_acc[ACC_WIDTH-1], phase_acc[ACC_WIDTH-2 : ACC_WIDTH-16]}; 
+
+    //square wave (MSB of phase accumulator) - scaled to full range (16-bit) 
+    assign square_wave = {phase_acc[ACC_WIDTH-1], {15{phase_acc[ACC_WIDTH-1]}}};
+
+    //triangle wave
+    //if MSB is 1, invert the lower 15 bits, otherwise use the lower 15 bits.
+    assign triangle_wave = phase_acc[ACC_WIDTH-1] ? 
+                        {~phase_acc[ACC_WIDTH-2 : ACC_WIDTH-17], phase_acc[ACC_WIDTH-17]} : //invert when MSB is high
+                        {phase_acc[ACC_WIDTH-2 : ACC_WIDTH-17], phase_acc[ACC_WIDTH-17]}; //keep as is when MSB is low
+
+    //waveform selector
+    always @(*) begin
+        case (r_Waveform_Select)
+            2'b00: audio_data = sawtooth_wave;
+            2'b01: audio_data = square_wave;
+            2'b10: audio_data = triangle_wave;
+            default: audio_data = 16'h0000;
+        endcase
+    end
     
     // TODO: Add waveform selector and add the other wave forms
     // TODO: Add multi note functionality/Chord Generator
