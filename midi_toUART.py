@@ -2,21 +2,32 @@ import rtmidi
 import serial
 
 def sendToFPGA(msg, ser): 
-    message, deltatime = msg  
-    midi_note_status = 1 if message[0] == 144 else 0  
-    midi_note_address = message[1]
+    message, deltatime = msg
     
-    # 1 byte of information: top 7 bits are note address in LUT and LSB is note status 1 = ON 0 = OFF
-    msg_note_packet = (midi_note_address << 1) | midi_note_status 
-    
-    # Send as a single byte 
-    ser.write(bytes([msg_note_packet]))  
-    print(f"Sent to FPGA: 0x{msg_note_packet:02X} (note: {midi_note_address}, status: {midi_note_status})")
+    # Safety check: Ensure message has at least 3 bytes 
+    # (rtmidi usually expands messages, but this prevents IndexError crashes)
+    if len(message) < 3:
+        return
 
+    # Check if it's a Note On (144/0x90) or Note Off (128/0x80)
+    # We filter out other messages (like Pitch Bend or Control Change) for now
+    status = message[0] & 0xF0 # Get the command nibble (0x90 or 0x80)
+    
+    if status == 0x90 or status == 0x80:
+        # Extract raw bytes
+        status_byte = message[0]
+        note_byte = message[1]
+        velocity_byte = message[2]
+
+        # Send all 3 bytes to the FPGA
+        # The FPGA FSM needs all 3 to trigger "msg_ready"
+        ser.write(bytes([status_byte, note_byte, velocity_byte]))  
+        
+        print(f"Sent raw MIDI: {status_byte} {note_byte} {velocity_byte}")
 def main():
     # Opening Serial port communication with FPGA at 115200 baud
     ser = serial.Serial(
-        port='/dev/tty.usbserial-1301',
+        port='/dev/cu.usbserial-11101',
         baudrate=115200,      
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_NONE,

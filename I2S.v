@@ -12,10 +12,15 @@ module I2S #(
     output reg      o_SDIN // Output bit
 );  
 
-    // Counters for generating 3 different clock signals
-    reg       master_counter = 0; 
-    reg [3:0]  serial_counter = 0; 
-    reg [4:0] bit_counter = 0 ; 
+  //CONSTANTS
+  localparam integer TOTAL_BITS = NUM_OF_AMPLITUDE_BITS * 2; // bits per frame (left+right) ex. 16 bits per channel * 2 channels = 32 bits per frame
+  // SCLK period (in i_Clk cycles) = DIVISOR / TOTAL_BITS
+  // SCLK toggle interval (half period) = (DIVISOR / TOTAL_BITS) / 2 = DIVISOR / (TOTAL_BITS*2)
+  //EX. DIVISOR = 512, TOTAL_BITS = 32, SCLK_TOGGLE = 512 / (32 * 2) = 8
+  //SCLK_TOGGLE is the number of i_Clk cycles for one toggle of the SCLK
+  localparam integer BITS_PER_FRAME = TOTAL_BITS*2;
+  localparam integer SCLK_TOGGLE = DIVISOR / (BITS_PER_FRAME * 2);
+  // localparam integer SCLK_TOGGLE = DIVISOR / (64 * 2); // = 4 // 64 is the number of bits per frame
 
     reg [15:0] shift_register;
     /*
@@ -26,10 +31,10 @@ module I2S #(
     assign o_LRCLK = sampling_rate; // For every 1 tick of the LRCLK 2^16(bit depth in our case) values get transmitted
     */
 
-    // State Machine States - Either Right or Left Channel
-    localparam WS_LEFT      = 0;
-    localparam WS_RIGHT     = 1;
-    reg        r_SM_Main = 0; 
+  // Counter widths (for LR, SCLK, and MCLK)
+  localparam LR_CNT_WIDTH   = $clog2(DIVISOR) + 1;
+  localparam SCLK_CNT_WIDTH = $clog2(SCLK_TOGGLE) + 1;
+  localparam MCLK_CNT_WIDTH = $clog2(MCLK_TOGGLE) + 1;
 
     // Generate Serial Clock --> 25 Mhhz/16
     always @(posedge i_Clk)
@@ -38,25 +43,36 @@ module I2S #(
         begin
           o_SCLK <= ~ o_SCLK;
         end
-        serial_counter <= serial_counter +1; 
-    end
-    
-
-    // Generate Master Clock --> 25 Mhz/ 2
-    always @(posedge i_Clk) 
-    begin
-      // clocks every 2 i_Clk cycles;
-      if (master_counter ==0)
-      begin
-        o_MCLK <= ~o_MCLK;
+        o_SCLK <= ~o_SCLK; // Toggle SCLK
+      end else begin
+        sclk_cnt <= sclk_cnt + 1;
       end
-      master_counter <= master_counter + 1; 
     end
+  end
 
-    // FSM and shift register logic for output
-    // LR CLOK is also contained which is SERIAL_CLK/(16(bitresolution) and 2 (num channels))
-    always @(posedge  o_SCLK)
-    begin
+  // MCLK generation (simple divider)
+  // Clock Frequency = i_Clk / MCLK_TOGGLE
+  // Ex. 25MHz / 2 = 12.5MHz
+  always @(posedge i_Clk) begin
+    if (mclk_cnt == MCLK_TOGGLE - 1) begin
+      mclk_cnt <= 0;
+      o_MCLK <= ~o_MCLK;
+    end else begin
+      mclk_cnt <= mclk_cnt + 1;
+    end
+  end
+
+
+
+  // I2S shift logic
+  // We shift one bit per SCLK rising edge. On the first bit of each channel we preload the
+  // channel's sample into the shift register and output its MSB immediately.
+  localparam integer CYCLE_DELAY = TOTAL_BITS-1-NUM_OF_AMPLITUDE_BITS;
+  reg [$clog2(CYCLE_DELAY):0] CYCLE_DELAY_COUNT= 0;
+
+  always @(posedge i_Clk) begin
+    // Clocking data on falling edge of serial clock
+    if (sclk_rising_pulse) begin
       case (r_SM_Main)
         WS_LEFT:
         begin 
@@ -80,7 +96,8 @@ module I2S #(
               r_SM_Main <= WS_RIGHT;
           end 
           else begin
-              bit_counter <= bit_counter + 1;
+            CYCLE_DELAY_COUNT <= 0 ;
+            r_SM_Main <= RIGHT_CHANNEL_WAIT;
           end
         end
         WS_RIGHT:
@@ -105,9 +122,13 @@ module I2S #(
               r_SM_Main <= WS_LEFT;
           end 
           else begin
-              bit_counter <= bit_counter + 1;
+            CYCLE_DELAY_COUNT <= 0;
+            r_SM_Main <= LEFT_CHANNEL_WAIT;
           end
         end
+        default:
+          r_SM_Main <= LEFT_CHANNEL_WAIT; 
       endcase
     end
+  end
 endmodule

@@ -11,7 +11,7 @@
 # --  Pinout: https://www.nandland.com/goboard/images/Go_Board_V1.pdf
 
 # ------------ User Leds ------------------------------------------------------
-set_io -nowarn LED1  56
+set_io -nowarn reset  56
 set_io -nowarn LED2  57
 set_io -nowarn LED3  59
 set_io -nowarn LED4  60
@@ -47,7 +47,7 @@ set_io -nowarn i_RX_Serial  73
 set_io -nowarn TX  74
 
 # -------------------------- VGA ---------------------------------------------
-set_io -nowarn VGA_HS  26
+set_io -nowarn i_Reset 26
 set_io -nowarn VGA_VS  27
 set_io -nowarn VGA_R0  36
 set_io -nowarn VGA_R1  37
@@ -83,10 +83,19 @@ set_io -nowarn VGA_B2  42
 #    | 3v3  3v3 |
 #     ----------
 #
-set_io -nowarn PMOD1   65
-set_io -nowarn PMOD2   64
-set_io -nowarn PMOD3   63
-set_io -nowarn PMOD4   62
+#    set_io -nowarn o_LRCLK  65
+#    set_io -nowarn o_SDIN   64
+#    set_io -nowarn o_PMOD3  63
+#    set_io -nowarn o_SCLK   62
+#    set_io -nowarn PMOD7   78
+#    set_io -nowarn PMOD8   79
+#    set_io -nowarn PMOD9   80
+#    set_io -nowarn PMOD10  81
+
+set_io -nowarn o_MCLK  65
+set_io -nowarn o_LRCLK   64
+set_io -nowarn o_SCLK  63
+set_io -nowarn o_SDIN   62
 set_io -nowarn PMOD7   78
 set_io -nowarn PMOD8   79
 set_io -nowarn PMOD9   80
