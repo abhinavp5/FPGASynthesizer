@@ -18,7 +18,7 @@ module I2S #(
   // SCLK toggle interval (half period) = (DIVISOR / TOTAL_BITS) / 2 = DIVISOR / (TOTAL_BITS*2)
   //EX. DIVISOR = 512, TOTAL_BITS = 32, SCLK_TOGGLE = 512 / (32 * 2) = 8
   //SCLK_TOGGLE is the number of i_Clk cycles for one toggle of the SCLK
-  localparam integer BITS_PER_FRAME = 64;
+  localparam integer BITS_PER_FRAME = TOTAL_BITS*2;
   localparam integer SCLK_TOGGLE = DIVISOR / (BITS_PER_FRAME * 2);
   // localparam integer SCLK_TOGGLE = DIVISOR / (64 * 2); // = 4 // 64 is the number of bits per frame
 
